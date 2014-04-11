@@ -9,10 +9,9 @@ Usage
 
 	ssh-run [-h] [-w workspace] host command
 
-Run `command` on `host`, placing a copy of the current directory in `workspace`
-(which defaults to `~/.ssh-run`).
+Run `command` on `host`, using `rsync` to copy the current directory to and from the remote server (in `~/.ssh-run` by default, or the path set by `-w`).
 
 Author
 ------
 
-`ssh-run` was written by `Sam Clements <https://github.com/borntyping>`_.
+`ssh-run` was written by [Sam Clements](https://github.com/borntyping).

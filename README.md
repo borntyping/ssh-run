@@ -14,4 +14,4 @@ Run `command` on `host`, using `rsync` to copy the current directory to and from
 Author
 ------
 
-`ssh-run` was written by `Sam Clements <https://github.com/borntyping>`_.
+`ssh-run` was written by `Sam Clements <https://github.com/borntyping>`.

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -e
+
+WORKSPACE="~/.ssh-run"
+
+while getopts 'w:h' opt; do
+  case $opt in
+    w)
+      WORKSPACE={$opt}
+      ;;
+    h)
+      echo "usage: ssh-run [-h] [-w workspace] host command"
+      exit 1
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+
+shift $((OPTIND-1))
+
+HOST="$1"
+
+if [ "$2" = '--' ]; then
+  COMMAND="${@:3}"
+else
+  COMMAND="$2"
+fi
+
+# Ensure the workspace directory exists
+ssh "$HOST" -- "mkdir -p $WORKSPACE"
+
+# Copy the current directory to the remote workspace
+rsync -q --archive --compress --delete $(pwd) "$HOST:$WORKSPACE"
+
+# Run the command inside the remote copy of the directory
+ssh -qt "$HOST" -- "cd $WORKSPACE/$(basename $(pwd)); $COMMAND"

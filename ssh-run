@@ -28,13 +28,13 @@ HOST="$1"
 LOCAL_DIR="$(pwd)/"
 WORKSPACE=${WORKSPACE:-"~/.ssh-run"}
 WORKSPACE_DIR="$WORKSPACE/$(basename $(pwd))/"
-RSYNC_OPTS='--quiet --archive --compress'
+RSYNC_OPTS='--quiet --archive --compress --delete'
 
 # Ensure the workspace directory exists
 ssh "$HOST" -- "mkdir -p $WORKSPACE"
 
 # Copy the current directory to the remote workspace
-rsync $RSYNC_OPTS --delete "$LOCAL_DIR" "$HOST:$WORKSPACE_DIR"
+rsync $RSYNC_OPTS "$LOCAL_DIR" "$HOST:$WORKSPACE_DIR"
 
 # Run the command inside the remote copy of the directory
 ssh -qt "$HOST" -- "cd $WORKSPACE_DIR; $COMMAND"

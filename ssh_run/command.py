@@ -1,6 +1,7 @@
 """Implements a command line entry point for ssh-run using argparse"""
 
 import argparse
+import concurrent.futures
 import getpass
 
 import paramiko
@@ -60,6 +61,23 @@ def parse_hostfiles(hostfiles):
     return [h.strip() for hosts in hostfiles for h in hosts.readlines()]
 
 
+class SSHRun(object):
+    def __init__(self, command, sudo_password=None):
+        self.command = command
+        self.sudo_password = sudo_password
+
+    def run(self, host):
+        ssh = ssh_run.ssh.SSHClient(sudo_password=self.sudo_password)
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(host)
+
+        stdin, stdout, stderr = ssh.exec_command(self.command)
+
+        for channel, name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
+            for line in channel.readlines():
+                print("[{:30}] {}: {}".format(host, name, line.strip()))
+
+
 def main():
     args = parser.parse_args()
     args.hosts.extend(parse_hostfiles(args.hostfiles))
@@ -67,19 +85,14 @@ def main():
 
     print("Running '{}' on {}".format(args.command, ', '.join(args.hosts)))
 
-    ssh = ssh_run.ssh.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
     if args.sudo_password_file:
-        ssh.use_sudo(args.sudo_password_file.read().strip())
+        password = args.sudo_password_file.read().strip()
     elif args.sudo:
-        ssh.use_sudo(getpass.getpass('Sudo password:'))
+        password = getpass.getpass('Sudo password:')
+    else:
+        password = None
 
-    for host in args.hosts:
-        ssh.connect(host)
-        stdin, stdout, stderr = ssh.exec_command(args.command)
+    ssh_run = SSHRun(args.command, password)
 
-        for channel, channel_name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
-            content = channel.read().strip()
-            if content:
-                print("[{:30}] {}: {}".format(host, channel_name, content))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(ssh_run.run, args.hosts))

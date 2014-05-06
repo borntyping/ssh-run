@@ -4,10 +4,9 @@ import paramiko
 
 
 class SSHClient(paramiko.SSHClient):
-    sudo_password = None
-
-    def use_sudo(self, password):
-        self.sudo_password = password
+    def __init__(self, *args, **kwargs):
+        self.sudo_password = kwargs.pop('sudo_password', None)
+        super().__init__(*args, **kwargs)
 
     def exec_command(self, command, *args, **kwargs):
         """Executes a command on the SSH server, optionally using sudo

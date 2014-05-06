@@ -6,7 +6,7 @@ import getpass
 import paramiko
 
 import ssh_run
-import ssh_run.runner
+import ssh_run.ssh
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -20,12 +20,17 @@ command = parser.add_argument_group(
 command.add_argument(
     'command', metavar='command', nargs=argparse.REMAINDER,
     help='The command to run on the remote connection')
-command.add_argument(
+
+sudo = command.add_mutually_exclusive_group()
+sudo.add_argument(
     '-s', '--sudo', action='store_true', dest='sudo',
     help="Execute the command using sudo")
-command.add_argument(
+sudo.add_argument(
     '-S', '--no-sudo', action='store_false', dest='sudo',
     help="Do not edit the command and do not ask for a password")
+sudo.add_argument(
+    '-P', '--sudo-password-file', type=argparse.FileType('r'),
+    help="Execute using sudo and read the password from a file")
 
 hosts = parser.add_argument_group('Host options')
 hosts.add_argument(
@@ -55,45 +60,24 @@ def parse_hostfiles(hostfiles):
     return [h.strip() for hosts in hostfiles for h in hosts.readlines()]
 
 
-class ExtendedSSHClient(paramiko.SSHClient):
-    def exec_sudo_command(
-        self, command, bufsize=-1, timeout=None, get_pty=False, password=None):
-        """Executes a command on the SSH server using sudo"""
-        command = 'sudo -S -p "" "{}"'.format(command)
-        stdin, stdout, stderr = self.exec_command(
-            command, bufsize=bufsize, timeout=timeout, get_pty=get_pty)
-
-        # Send the password to sudo's STDIN
-        stdin.write(password)
-        stdin.flush()
-
-        return stdin, stdout, stderr
-
-
 def main():
     args = parser.parse_args()
+    args.hosts.extend(parse_hostfiles(args.hostfiles))
+    args.command = ' '.join(args.command)
 
-    hosts = list()
-    hosts.extend(args.hosts)
-    hosts.extend(parse_hostfiles(args.hostfiles))
+    print("Running '{}' on {}".format(args.command, ', '.join(args.hosts)))
 
-    command = ' '.join(args.command)
-    password = open('pass', 'r').read()
-
-    print("Running '{}' on {}".format(command, ', '.join(hosts)))
-
-    ssh = ExtendedSSHClient()
+    ssh = ssh_run.ssh.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    for host in hosts:
+    if args.sudo_password_file:
+        ssh.use_sudo(args.sudo_password_file.read().strip())
+    elif args.sudo:
+        ssh.use_sudo(getpass.getpass('Sudo password:'))
+
+    for host in args.hosts:
         ssh.connect(host)
-
-        if args.sudo:
-            values = ssh.exec_sudo_command(command, password=password)
-        else:
-            values = ssh.exec_command(command)
-
-        stdin, stdout, stderr = values
+        stdin, stdout, stderr = ssh.exec_command(args.command)
 
         for channel, channel_name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
             content = channel.read().strip()

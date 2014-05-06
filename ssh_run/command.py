@@ -1,6 +1,9 @@
 """Implements a command line entry point for ssh-run using argparse"""
 
 import argparse
+import getpass
+
+import paramiko
 
 import ssh_run
 import ssh_run.runner
@@ -15,11 +18,8 @@ command = parser.add_argument_group(
     "If the command starts with 'sudo', the --sudo flag will be set on by"
     "default. You can use the --no-sudo flag to prevent this.")
 command.add_argument(
-    'command',
+    'command', metavar='command', nargs=argparse.REMAINDER,
     help='The command to run on the remote connection')
-command.add_argument(
-    'args', nargs=argparse.REMAINDER, metavar='...',
-    help='Arguments to pass to the command')
 command.add_argument(
     '-s', '--sudo', action='store_true', dest='sudo',
     help="Execute the command using sudo")
@@ -29,10 +29,11 @@ command.add_argument(
 
 hosts = parser.add_argument_group('Host options')
 hosts.add_argument(
-    '-H', '--host', action='append', dest='hosts', metavar='HOST',
+    '-H', '--host', action='append', dest='hosts', metavar='HOST', default=[],
     help="A host to run the command on - can be used multiple times")
 hosts.add_argument(
-    '-F', '--hosts', type=argparse.FileType('r'), metavar='HOSTS',
+    '-F', '--hostfile', action='append', dest='hostfiles', metavar='PATH',
+    type=argparse.FileType('r'),
     help="A file containing a list of hosts to run the command on")
 
 workspace = parser.add_argument_group(
@@ -50,7 +51,51 @@ workspace.add_argument(
     help="Copy the current workspace to a specified directory")
 
 
+def parse_hostfiles(hostfiles):
+    return [h.strip() for hosts in hostfiles for h in hosts.readlines()]
+
+
+class ExtendedSSHClient(paramiko.SSHClient):
+    def exec_sudo_command(
+        self, command, bufsize=-1, timeout=None, get_pty=False, password=None):
+        """Executes a command on the SSH server using sudo"""
+        command = 'sudo -S -p "" "{}"'.format(command)
+        stdin, stdout, stderr = self.exec_command(
+            command, bufsize=bufsize, timeout=timeout, get_pty=get_pty)
+
+        # Send the password to sudo's STDIN
+        stdin.write(password)
+        stdin.flush()
+
+        return stdin, stdout, stderr
+
+
 def main():
     args = parser.parse_args()
 
-    print(args)
+    hosts = list()
+    hosts.extend(args.hosts)
+    hosts.extend(parse_hostfiles(args.hostfiles))
+
+    command = ' '.join(args.command)
+    password = open('pass', 'r').read()
+
+    print("Running '{}' on {}".format(command, ', '.join(hosts)))
+
+    ssh = ExtendedSSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    for host in hosts:
+        ssh.connect(host)
+
+        if args.sudo:
+            values = ssh.exec_sudo_command(command, password=password)
+        else:
+            values = ssh.exec_command(command)
+
+        stdin, stdout, stderr = values
+
+        for channel, channel_name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
+            content = channel.read().strip()
+            if content:
+                print("[{:30}] {}: {}".format(host, channel_name, content))

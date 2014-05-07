@@ -12,6 +12,3 @@ Author
 
 Written by `Sam Clements <https://github.com/borntyping>`_ at
 `DataSift <https://datasift.com/>`_.
-
-.. image:: https://github.com/borntyping.png
-.. image:: https://github.com/datasift.png

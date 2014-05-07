@@ -5,6 +5,7 @@ import concurrent.futures
 import getpass
 
 import paramiko
+import termcolor
 
 import ssh_run
 import ssh_run.ssh
@@ -42,57 +43,98 @@ hosts.add_argument(
     type=argparse.FileType('r'),
     help="A file containing a list of hosts to run the command on")
 
-workspace = parser.add_argument_group(
-    'Workspace options',
-    '%(prog)s can sync the current directory with the remote host before and '
-    'after running the command. By default, it will create directories in '
-    '~/.ssh-run/$name, where $name is the name of the current directory.')
-
-workspace = workspace.add_mutually_exclusive_group()
-workspace.add_argument(
-    '-w', '--copy-workspace', action='store_true', dest='workspace',
-    help="Copy the current workspace to ~/.ssh-run/{dirname}")
-workspace.add_argument(
-    '-W', '--copy-workspace-to', dest='workspace', metavar='PATH',
-    help="Copy the current workspace to a specified directory")
-
-
-def parse_hostfiles(hostfiles):
-    return [h.strip() for hosts in hostfiles for h in hosts.readlines()]
+# workspace = parser.add_argument_group(
+#     'Workspace options',
+#     '%(prog)s can sync the current directory with the remote host before and '
+#     'after running the command. By default, it will create directories in '
+#     '~/.ssh-run/$name, where $name is the name of the current directory.')
+# workspace = workspace.add_mutually_exclusive_group()
+# workspace.add_argument(
+#     '-w', '--copy-workspace', action='store_true', dest='workspace',
+#     help="Copy the current workspace to ~/.ssh-run/{dirname}")
+# workspace.add_argument(
+#     '-W', '--copy-workspace-to', dest='workspace', metavar='PATH',
+#     help="Copy the current workspace to a specified directory")
 
 
 class SSHRun(object):
-    def __init__(self, command, sudo_password=None):
+    class Formatter(object):
+        DEFAULT_FORMAT = "[{host}] {message}"
+        CHANNEL_COLORS = {
+            'STDERR': 'yellow',
+            'STDOUT': 'white'
+        }
+
+        def __init__(self, hosts, message_format=DEFAULT_FORMAT):
+            self.width = max(len(host) for host in hosts)
+            self.message_format = message_format
+
+        def _message(self, host, message, color=None):
+            host = termcolor.colored("{:{}}".format(host, self.width), 'blue')
+            print(self.message_format.format(host=host, message=message))
+
+        def output(self, host, channel, line):
+            color = self.CHANNEL_COLORS.get(channel, None)
+            message = termcolor.colored(channel + ': ' + line, color)
+            self._message(host, message)
+
+        def error(self, host, message):
+            self._message(host, termcolor.colored(message, 'red'))
+
+    def __init__(self, command, hosts, sudo_password=None):
         self.command = command
+        self.hosts = hosts
         self.sudo_password = sudo_password
+
+        self.fmt = self.Formatter(hosts=hosts)
 
     def run(self, host):
         ssh = ssh_run.ssh.SSHClient(sudo_password=self.sudo_password)
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(host)
+
+        try:
+            ssh.connect(host)
+        except:
+            self.fmt.error("Failed to connect")
+            return
 
         stdin, stdout, stderr = ssh.exec_command(self.command)
 
         for channel, name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
             for line in channel.readlines():
-                print("[{:30}] {}: {}".format(host, name, line.strip()))
+                self.fmt.output(host, name, line.strip())
+
+    def main(self):
+        print("Running '{}' on {}".format(self.command, ', '.join(self.hosts)))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            return list(executor.map(self.run, self.hosts))
+
+
+def parse_command(args):
+    return ' '.join(args.command)
+
+
+def parse_hosts(args):
+    hosts = list()
+    hosts.extend(args.hosts)
+    hosts.extend(h.strip() for f in args.hostfiles for h in f.readlines())
+    return hosts
+
+
+def parse_sudo(args):
+    if args.sudo_password_file:
+        return args.sudo_password_file.read().strip()
+    elif args.sudo:
+        return getpass.getpass('Sudo password:')
+    return None
 
 
 def main():
     args = parser.parse_args()
-    args.hosts.extend(parse_hostfiles(args.hostfiles))
-    args.command = ' '.join(args.command)
 
-    print("Running '{}' on {}".format(args.command, ', '.join(args.hosts)))
-
-    if args.sudo_password_file:
-        password = args.sudo_password_file.read().strip()
-    elif args.sudo:
-        password = getpass.getpass('Sudo password:')
-    else:
-        password = None
-
-    ssh_run = SSHRun(args.command, password)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        list(executor.map(ssh_run.run, args.hosts))
+    SSHRun(
+        command=parse_command(args),
+        hosts=parse_hosts(args),
+        sudo_password=parse_sudo(args)
+    ).main()

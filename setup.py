@@ -14,7 +14,10 @@ setuptools.setup(
     long_description=open('README.rst').read(),
 
     packages=['ssh_run'],
-    install_requires=['paramiko'],
+    install_requires=[
+        'paramiko',
+        'termcolor'
+    ],
 
     entry_points={
         'console_scripts': [

@@ -40,7 +40,7 @@ hosts.add_argument(
     help="A host to run the command on - can be used multiple times")
 hosts.add_argument(
     '-F', '--hostfile', action='append', dest='hostfiles', metavar='PATH',
-    type=argparse.FileType('r'),
+    default=[], type=argparse.FileType('r'),
     help="A file containing a list of hosts to run the command on")
 
 # workspace = parser.add_argument_group(
@@ -70,7 +70,7 @@ class SSHRun(object):
             self.message_format = message_format
 
         def _message(self, host, message, color=None):
-            host = termcolor.colored("{:{}}".format(host, self.width), 'blue')
+            host = termcolor.colored("{:{}}".format(host, self.width), 'cyan')
             print(self.message_format.format(host=host, message=message))
 
         def output(self, host, channel, line):
@@ -95,7 +95,7 @@ class SSHRun(object):
         try:
             ssh.connect(host)
         except:
-            self.fmt.error("Failed to connect")
+            self.fmt.error(host, "Failed to connect")
             return
 
         stdin, stdout, stderr = ssh.exec_command(self.command)
@@ -103,6 +103,8 @@ class SSHRun(object):
         for channel, name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
             for line in channel.readlines():
                 self.fmt.output(host, name, line.strip())
+
+        ssh.close()
 
     def main(self):
         print("Running '{}' on {}".format(self.command, ', '.join(self.hosts)))

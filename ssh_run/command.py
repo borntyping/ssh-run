@@ -3,6 +3,7 @@
 import argparse
 import concurrent.futures
 import getpass
+import socket
 
 import paramiko
 import termcolor
@@ -89,26 +90,28 @@ class SSHRun(object):
         self.fmt = self.Formatter(hosts=hosts)
 
     def run(self, host):
-        ssh = ssh_run.ssh.SSHClient(sudo_password=self.sudo_password)
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        """Manage a host/client for use in exec_command()"""
+        client = ssh_run.ssh.SSHClient(sudo_password=self.sudo_password)
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         try:
-            ssh.connect(host)
-        except:
+            client.connect(host)
+        except socket.error:
             self.fmt.error(host, "Failed to connect")
-            return
+        else:
+            self.exec_command(host, client)
+        finally:
+            client.close()
 
-        stdin, stdout, stderr = ssh.exec_command(self.command)
-
+    def exec_command(self, host, client):
+        """Run a command on a given host/client pair"""
+        stdin, stdout, stderr = client.exec_command(self.command)
         for channel, name in ((stdout, 'STDOUT'), (stderr, 'STDERR')):
             for line in channel.readlines():
                 self.fmt.output(host, name, line.strip())
 
-        ssh.close()
-
     def main(self):
         print("Running '{}' on {}".format(self.command, ', '.join(self.hosts)))
-
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             return list(executor.map(self.run, self.hosts))
 

@@ -14,9 +14,14 @@ class SSHClient(paramiko.SSHClient):
         See paramiko.SSHClient.exec_command for a full explaination. This
         function adds the sudo parameter - when this parameter is True the
         command is run using sudo (using -S to send the password on STDIN).
+
+        Flags:
+            -k: Invalidate existing sudo timestamps
+            -S: Read password from STDIN
+            -p: Set the password prompt
         """
         if self.sudo_password:
-            command = 'sudo -S -p "" -- ' + command
+            command = 'sudo -k -S -p "" -- {}'.format(command)
 
         stdin, stdout, stderr = super().exec_command(command, *args, **kwargs)
 

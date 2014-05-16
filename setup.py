@@ -33,7 +33,7 @@ setuptools.setup(
         'Operating System :: Unix',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.3',
         'Topic :: Software Development :: Build Tools',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities'

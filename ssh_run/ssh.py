@@ -21,7 +21,7 @@ class SSHClient(paramiko.SSHClient):
             -p: Set the password prompt
         """
         if self.sudo_password:
-            command = 'sudo -k -S -p "" -- {}'.format(command)
+            command = 'sudo -k -S -p "" -- bash -c "{}"'.format(command)
 
         stdin, stdout, stderr = super().exec_command(command, *args, **kwargs)
 

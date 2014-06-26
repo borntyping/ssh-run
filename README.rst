@@ -10,8 +10,17 @@ Python script of the same name for running a command across multiple servers.
 Installation
 ------------
 
-Requires Python 3. The pycrypto library (required by paramiko) does not work
-if installed globally on Python 3.4.
+    pip install ssh-run
+
+Usage
+-----
+
+    ssh-run --help
+
+Requirements
+------------
+
+Runs on Python 3, *may* work on Python 2.
 
 Author
 ------

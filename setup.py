@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name='ssh-run',
-    version='0.3.0',
+    version='0.4.0',
 
     author="Sam Clements",
     author_email="sam@borntyping.co.uk",
@@ -15,13 +15,14 @@ setuptools.setup(
 
     packages=['ssh_run'],
     install_requires=[
-        'paramiko',
+        'click',
+        'pexpect',
         'termcolor'
     ],
 
     entry_points={
         'console_scripts': [
-            'ssh-run = ssh_run.command:main'
+            'ssh-run = ssh_run:main'
         ]
     },
 
@@ -33,7 +34,6 @@ setuptools.setup(
         'Operating System :: Unix',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
         'Topic :: Software Development :: Build Tools',
         'Topic :: System :: Systems Administration',
         'Topic :: Utilities'

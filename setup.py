@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name='ssh-run',
-    version='0.4.0',
+    version='0.5.0',
 
     author="Sam Clements",
     author_email="sam@borntyping.co.uk",
@@ -22,7 +22,7 @@ setuptools.setup(
 
     entry_points={
         'console_scripts': [
-            'ssh-run = ssh_run:main'
+            'ssh-run = ssh_run.cli:main'
         ]
     },
 

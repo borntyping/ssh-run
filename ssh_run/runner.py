@@ -2,11 +2,13 @@
 
 import io
 import functools
+import os
+import os.path
 
 import pexpect
 import termcolor
 
-__all__ = ['SSHRunner', 'SudoSSHRunner']
+__all__ = ['SSHRunner']
 
 
 class Logfile(object):
@@ -14,7 +16,8 @@ class Logfile(object):
         self.host = host
 
     def print_line(self, line):
-        print('[{}] {}'.format(self.host, line))
+        host = termcolor.colored(self.host, 'cyan')
+        print('[{}] {}'.format(host, line))
 
     def readlines(self, data):
         buffer = io.StringIO(data)
@@ -34,28 +37,75 @@ class Logfile(object):
         pass
 
 
+class Spawn(object):
+    def __init__(self, command, args, host=None, verbose=False):
+        self.command = command
+        self.args = args
+        self.host = host
+        self.verbose = verbose
+
+    def __enter__(self):
+        if self.verbose:
+            print(termcolor.colored('> {} {}'.format(
+                self.command, ' '.join(self.args)), 'grey', attrs=['bold']))
+        self.child = pexpect.spawnu(
+            self.command, self.args,
+            logfile=Logfile(self.host), timeout=300)
+        return self.child
+
+    def __exit__(self, *exception):
+        self.child.expect(pexpect.EOF)
+        self.child.close()
+        if self.child.exitstatus != 0:
+            self.child.logfile.write_error(
+                'Failed to run command [{}]'.format(self.child.exitstatus))
+
+
 class SSHRunner(object):
     SSH_OPTS = {
         'BatchMode': 'yes',
         'LogLevel': 'QUIET'
     }
 
+    SUDO_PROMPT = 'ssh-run:'
+
+    WORKSPACE = '~/.ssh-run-workspace'
+
     @classmethod
     def partial(cls, *args, **kwargs):
         return functools.partial(cls, *args, **kwargs)
 
-    def __init__(self, host, command):
+    def __init__(self, host, command,
+                 sudo=False, sudo_password=None,
+                 workspace=False, verbose=False):
         super().__init__()
         self.host = host
         self.command = command
+        self.sudo = sudo
+        self.sudo_password = sudo_password
+        self.workspace = workspace
+        self.verbose = verbose
 
     def run(self):
-        ssh = pexpect.spawnu('ssh', self.ssh_args() + self.command_args())
-        ssh.logfile = Logfile(self.host)
-        self.on_login(ssh)
-        ssh.expect(pexpect.EOF)
-        ssh.close()
-        self.on_exit(ssh)
+        if self.workspace:
+            self.sync_workspace()
+
+        with self.spawn('ssh', self.args()) as ssh:
+            if self.sudo:
+                with self.disable_logfile(ssh):
+                    ssh.expect(self.SUDO_PROMPT)
+                    ssh.sendline(self.sudo_password)
+
+        if self.workspace:
+            self.sync_workspace()
+
+    def spawn(self, command, args):
+        return Spawn(command, args, host=self.host, verbose=self.verbose)
+
+    # SSH
+
+    def args(self):
+        return self.ssh_args() + self.command_args()
 
     def ssh_args(self):
         args = [self.host, '-t']
@@ -69,31 +119,32 @@ class SSHRunner(object):
             yield '{}={}'.format(k, v)
 
     def command_args(self):
-        return [self.command]
+        command = [self.command]
 
-    def on_login(self, ssh):
-        pass
+        if self.workspace:
+            command = ['cd', self._workspace_path(), '&&'] + command
 
-    def on_exit(self, ssh):
-        if ssh.exitstatus != 0:
-            ssh.logfile.write_error(
-                'Failed to run command [{}]'.format(ssh.exitstatus))
+        if self.sudo:
+            command = ['sudo', '-p', self.SUDO_PROMPT, '--'] + command
 
+        return command
 
-class SudoSSHRunner(SSHRunner):
-    SUDO_PROMPT = 'ssh-run:'
+    # Workspace
 
-    def __init__(self, host, command, password):
-        super().__init__(host, command)
-        self.password = password
+    def sync_workspace(self):
+        with self.spawn('rsync', [
+            '--quiet',
+            '--archive',
+            '--compress',
+            '--delete',
+            '.', '{}:{}'.format(self.host, self._workspace_path())
+        ]):
+            pass
 
-    def command_args(self):
-        return ['sudo', '-p', self.SUDO_PROMPT, '--', self.command]
+    def _workspace_path(self):
+        return '/tmp/ssh-run-workspace_' + os.path.basename(os.getcwd())
 
-    def on_login(self, ssh):
-        with self.disable_logfile(ssh):
-            ssh.expect(self.SUDO_PROMPT)
-            ssh.sendline(self.password)
+    # Sudo
 
     class disable_logfile(object):
         """Context mangager to temporarily disable a Pexpect logfile"""

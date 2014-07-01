@@ -43,9 +43,9 @@ def create_runner_class(sudo, sudo_password, workspace, verbose):
     '--workspace/--no-workspace', '-w', default=False,
     help='Copy the current workspace to a remote host.')
 @click.option(
-    '--verbose/--no-verbose', '-V', default=False,
+    '--verbose/--no-verbose', '-v', default=False,
     help='Output commands before running them.')
-@click.version_option(ssh_run.__version__)
+@click.version_option(ssh_run.__version__, '--version', '-V')
 @click.argument('command', nargs=-1, required=True)
 def main(hosts_l, hosts_f, sudo, sudo_password, workspace, verbose, command):
     runner = create_runner_class(sudo, sudo_password, workspace, verbose)

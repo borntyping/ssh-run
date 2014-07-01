@@ -67,7 +67,7 @@ class SSHRunner(object):
         'LogLevel': 'QUIET'
     }
 
-    SUDO_PROMPT = 'ssh-run:'
+    SUDO_PROMPT = u'ssh-run:'
 
     WORKSPACE = '~/.ssh-run-workspace'
 

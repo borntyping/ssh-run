@@ -25,7 +25,7 @@ class Logfile(object):
 
     def write(self, data):
         lines = io.StringIO(data).readlines()
-        lines = filter(None, map(str.strip, lines))
+        lines = filter(None, (line.strip() for line in lines))
 
         for line in lines:
             self.print_line(line)
@@ -45,12 +45,12 @@ class Spawn(object):
         self.verbose = verbose
 
     def __enter__(self):
+        self.logfile = Logfile(self.host)
         if self.verbose:
-            print(termcolor.colored('> {} {}'.format(
+            self.logfile.print_line(termcolor.colored('$ {} {}'.format(
                 self.command, ' '.join(self.args)), 'grey', attrs=['bold']))
         self.child = pexpect.spawnu(
-            self.command, self.args,
-            logfile=Logfile(self.host), timeout=300)
+            self.command, self.args, logfile=self.logfile, timeout=300)
         return self.child
 
     def __exit__(self, *exception):
@@ -78,7 +78,6 @@ class SSHRunner(object):
     def __init__(self, host, command,
                  sudo=False, sudo_password=None,
                  workspace=False, verbose=False):
-        super().__init__()
         self.host = host
         self.command = command
         self.sudo = sudo
@@ -88,7 +87,7 @@ class SSHRunner(object):
 
     def run(self):
         if self.workspace:
-            self.sync_workspace()
+            self.sync_workspace(self._local_workspace, self._remote_workspace)
 
         with self.spawn('ssh', self.args()) as ssh:
             if self.sudo:
@@ -97,7 +96,7 @@ class SSHRunner(object):
                     ssh.sendline(self.sudo_password)
 
         if self.workspace:
-            self.sync_workspace()
+            self.sync_workspace(self._remote_workspace, self._local_workspace)
 
     def spawn(self, command, args):
         return Spawn(command, args, host=self.host, verbose=self.verbose)
@@ -122,7 +121,7 @@ class SSHRunner(object):
         command = [self.command]
 
         if self.workspace:
-            command = ['cd', self._workspace_path(), '&&'] + command
+            command = ['cd', self._remote_workspace_path, '&&'] + command
 
         if self.sudo:
             command = ['sudo', '-p', self.SUDO_PROMPT, '--'] + command
@@ -131,18 +130,25 @@ class SSHRunner(object):
 
     # Workspace
 
-    def sync_workspace(self):
-        with self.spawn('rsync', [
-            '--quiet',
-            '--archive',
-            '--compress',
-            '--delete',
-            '.', '{}:{}'.format(self.host, self._workspace_path())
-        ]):
+    def sync_workspace(self, src, dest):
+        opts = ['--archive', '--delete']
+        if self.verbose:
+            opts.append('--verbose')
+        with self.spawn('rsync', opts + [src, dest]):
             pass
 
-    def _workspace_path(self):
-        return '/tmp/ssh-run-workspace_' + os.path.basename(os.getcwd())
+    @property
+    def _local_workspace(self):
+        return './'
+
+    @property
+    def _remote_workspace(self):
+        return '{}:{}'.format(self.host, self._remote_workspace_path)
+
+    @property
+    def _remote_workspace_path(self):
+        return '/tmp/ssh-run-workspace_{}/'.format(
+            os.path.basename(os.getcwd()))
 
     # Sudo
 

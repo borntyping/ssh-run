@@ -34,16 +34,16 @@ def create_runner_class(sudo, sudo_password, workspace, verbose):
     '--hosts', '-H', 'hosts_f', type=click.File('rb'),
     help='A file with one host per line. \'-\' reads from stdin.')
 @click.option(
-    '--sudo/--no-sudo', '-s',
+    '--sudo/--no-sudo', '-s', default=False,
     help='Run the command using sudo.')
 @click.option(
     '--sudo-password',
     help='Sudo password, prompts if not set on command line and needed.')
 @click.option(
-    '--workspace/--no-workspace', '-w',
+    '--workspace/--no-workspace', '-w', default=False,
     help='Copy the current workspace to a remote host.')
 @click.option(
-    '--verbose/--no-verbose', '-V',
+    '--verbose/--no-verbose', '-V', default=False,
     help='Output commands before running them.')
 @click.version_option(ssh_run.__version__)
 @click.argument('command', nargs=-1, required=True)

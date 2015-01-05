@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name='ssh-run',
-    version='0.5.0',
+    version='0.5.1',
 
     author="Sam Clements",
     author_email="sam@borntyping.co.uk",
@@ -12,6 +12,7 @@ setuptools.setup(
     url="https://github.com/borntyping/ssh-run",
     description="A tool for running commands on remote servers",
     long_description=open('README.rst').read(),
+    license='MIT',
 
     packages=['ssh_run'],
     install_requires=[

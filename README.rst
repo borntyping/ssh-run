@@ -1,11 +1,21 @@
 ssh-run
 =======
 
-A tool for running commands on remote servers.
+.. image:: https://img.shields.io/pypi/v/ssh-run.svg
+    :target: https://warehouse.python.org/project/ssh-run/
+    :alt: ssh-run on PyPI
 
-The original `ssh-run` was a small bash script for running a command using your
-current directory on a remote server using SSH. This is being merged with a
-Python script of the same name for running a command across multiple servers.
+.. image:: https://img.shields.io/pypi/l/ssh-run.svg
+    :target: https://warehouse.python.org/project/ssh-run/
+    :alt: ssh-run on PyPI
+
+.. image:: https://img.shields.io/github/issues/borntyping/ssh-run.svg?style=flat-square
+    :target: https://github.com/borntyping/ssh-run/issues
+    :alt: GitHub issues for ssh-run
+
+|
+
+A tool for running commands on remote servers.
 
 Installation
 ------------
@@ -15,12 +25,30 @@ Installation
 Usage
 -----
 
+Show usage information with:
+
     ssh-run --help
+
+Examples
+--------
+
+Run a command on a single remote host:
+
+    ssh-run -h example.com -- echo hello world
+
+Run a command on multiple remote hosts:
+
+    cat hosts | ssh-run -H - -- echo hello world
 
 Requirements
 ------------
 
 Runs on Python 3, *may* work on Python 2.
+
+Licence
+-------
+
+``ssh-run`` is licenced under the `MIT Licence <http://opensource.org/licenses/MIT>`_.
 
 Author
 ------

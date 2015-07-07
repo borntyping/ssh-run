@@ -155,7 +155,7 @@ class SSHRunner(object):
 
     @property
     def _remote_workspace_path(self):
-        return '/tmp/ssh-run-workspace_{}/'.format(
+        return '~/.ssh-run/{}/'.format(
             os.path.basename(os.getcwd()))
 
     # Sudo

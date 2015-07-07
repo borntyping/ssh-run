@@ -126,8 +126,7 @@ class SSHRunner(object):
         command = self.command
 
         if self.workspace:
-            command = 'cd {} && {}'.format(
-                self._remote_workspace_path, command)
+            command = 'cd {} && {}'.format(self._remote_path, command)
 
         command = 'bash -c -- "{}"'.format(command)
 
@@ -151,11 +150,11 @@ class SSHRunner(object):
 
     @property
     def _remote_workspace(self):
-        return '{}:{}'.format(self.host, self._remote_workspace_path)
+        return '{}:{}'.format(self.host, self._remote_path)
 
     @property
-    def _remote_workspace_path(self):
-        return '~/.ssh-run/{}/'.format(
+    def _remote_path(self):
+        return '~/.ssh-run_{}/'.format(
             os.path.basename(os.getcwd()))
 
     # Sudo

@@ -23,7 +23,7 @@ setuptools.setup(
 
     entry_points={
         'console_scripts': [
-            'ssh-run = ssh_run.cli:main'
+            'ssh-run = ssh_run.run:main'
         ]
     },
 

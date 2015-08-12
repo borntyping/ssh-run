@@ -93,18 +93,15 @@ class Spawn:
 
 
 class Shell(cmd.Cmd):
-    prompt = '(ssh-run)> '
-
     def __init__(self, runner, *args, **kwargs):
         super(Shell, self).__init__(*args, **kwargs)
         self.runner = runner
 
     @property
-    def intro(self):
-        if self.runner.verbose:
-            return "{}= Hosts: {}.".format(
-                self.prompt[:-2], ', '.join(self.runner.hosts))
-        return None
+    def prompt(self):
+        """Show a two line prompt with a list of hosts on the first line."""
+        return "(ssh-run)= {}\n(ssh-run)> ".format(
+            self.prompt[:-2], ', '.join(self.runner.hosts))
 
     def do_EOF(self, arg):
         """Exit the shell."""

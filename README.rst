@@ -15,7 +15,7 @@ ssh-run
 
 |
 
-A tool for running commands on remote servers.
+Run a shell command across multiple SSH servers in sequence.
 
 Installation
 ------------
@@ -40,10 +40,18 @@ Run a command on multiple remote hosts:
 
     cat hosts | ssh-run -H - -- echo hello world
 
+Run a command on hosts matched by a chef search:
+
+    knife search -i "chef_evironment:staging" 2>/dev/null | ssh-run -H - -- echo hello world
+
+Start a shell for running multiple commands:
+
+    ssh-run -h host1 -h host2
+
 Requirements
 ------------
 
-Runs on Python 3, *may* work on Python 2.
+Runs on Python 2.6 and above, including Python 3.
 
 Licence
 -------

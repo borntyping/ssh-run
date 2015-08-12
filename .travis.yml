@@ -1,0 +1,15 @@
+language: python
+sudo: false
+env:
+  - TOXENV=py26-help
+  - TOXENV=py26-lint
+  - TOXENV=py27-help
+  - TOXENV=py27-lint
+  - TOXENV=py33-help
+  - TOXENV=py33-lint
+  - TOXENV=py34-help
+  - TOXENV=py34-lint
+install:
+  - pip install tox
+script:
+  - tox

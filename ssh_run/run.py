@@ -17,6 +17,9 @@ def parse_hosts(hostslist, hostsfile):
     if hostsfile:
         hosts.extend(host.decode('utf-8').strip() for host in hostsfile)
 
+    if not hosts:
+        raise Exception('No hosts provided')
+
     return hosts
 
 
@@ -50,9 +53,24 @@ def parse_hosts(hostslist, hostsfile):
     '--verbose/--no-verbose', '-v', default=False,
     help='Output commands before running them.')
 @click.version_option(ssh_run.__version__, '--version', '-V')
-@click.argument('command', nargs=-1, required=True)
+@click.argument('command', nargs=-1)
 def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
          workspace, workspace_path, verbose, command):
+    """
+    Run a command across multiple hosts in sequence.
+
+    The --sudo and --sudo-password options allow the commands to be run with
+    sudo, prompting for a password once and then sending that to the remote
+    host when prompted.
+
+    The --workspace and --workspace-path options will sync the current
+    directory or a specificed directory with the remote host before and after
+    running the command. Workspaces are stored in ~/.ssh-run_<basename> on the
+    remote host.
+
+    If no command is given, an interactive shell is started which will run the
+    input commands on each host.
+    """
 
     # Prompt the user for a password to use with sudo.
     if sudo and not sudo_password:
@@ -61,10 +79,9 @@ def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
 
     # Create a runner with the settings used on every host.
     runner = ssh_run.ssh.SSHRun(
-        dry_run=dry_run, sudo=sudo, sudo_password=sudo_password,
-        timeout=timeout, verbose=verbose, workspace=workspace,
-        workspace_path=workspace_path)
+        parse_hosts(hosts_list, hosts_file), dry_run=dry_run, sudo=sudo,
+        sudo_password=sudo_password, timeout=timeout, verbose=verbose,
+        workspace=workspace, workspace_path=workspace_path)
 
-    # Run the command on each host.
-    for host in parse_hosts(hosts_list, hosts_file):
-        runner.run(host, command)
+    # Run the command or start a shell for running multiple commands.
+    runner.run(command) if command else runner.shell()

@@ -1,3 +1,4 @@
+import cmd
 import os
 import os.path
 
@@ -35,6 +36,10 @@ class Log:
         data = data.replace('\r', '\r' + self.prompt)
         print(data, end='')
 
+    def write_end(self):
+        if not self.newline:
+            print()
+
     def flush(self):
         pass
 
@@ -69,6 +74,7 @@ class Spawn:
         if not self.dry_run:
             self.child.expect(pexpect.EOF)
             self.child.close()
+            self.log.write_end()
             if self.child.exitstatus == 0:
                 self.msg("Command ran successfully. [0]", 'green')
             else:
@@ -85,6 +91,33 @@ class Spawn:
             self.log.msg(*args, **kwargs)
 
 
+class Shell(cmd.Cmd):
+    prompt = '(ssh-run)> '
+
+    def __init__(self, runner, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.runner = runner
+
+    @property
+    def intro(self):
+        if not self.runner.verbose:
+            return None
+        return "Hosts: {}.".format(', '.join(self.runner.hosts))
+
+    def do_EOF(self, arg):
+        """Exit the shell."""
+        print()
+        return True
+
+    def do_exit(self, arg):
+        """Exit the shell."""
+        return True
+
+    def default(self, arg):
+        for host in self.hosts:
+            self.runner.run(host, [arg])
+
+
 class SSHRun:
     """
     A runner that can be used to cconfigure and run commmands on remote hosts.
@@ -92,9 +125,10 @@ class SSHRun:
 
     SUDO_PROMPT = 'ssh-run:'
 
-    def __init__(self, *, dry_run=False, timeout=None, sudo=False,
+    def __init__(self, hosts, *, dry_run=False, timeout=None, sudo=False,
                  sudo_password=None, verbose=False, workspace=False,
                  workspace_path=None):
+        self.hosts = hosts
         self.dry_run = dry_run
         self.timeout = timeout
         self.sudo = sudo
@@ -103,34 +137,39 @@ class SSHRun:
         self.workspace = workspace
         self.workspace_path = workspace_path
 
-    def run(self, host, script):
+    def shell(self):
+        """Start a shell to run multiple commands"""
+        return Shell(self).cmdloop()
+
+    def run(self, script):
         """
-        Run a script or command on the host.
+        Run a script or command on each host.
 
         Runs rsync before and after the SSH command if nesscary, and sends the
         sudo password when prompted. The logfile is disabled while sending too
         and from sudo so the prompt and password are not shown.
         """
-        log = Log(host, verbose=self.verbose)
+        for host in self.hosts:
+            log = Log(host, verbose=self.verbose)
 
-        if self.workspace:
-            self.spawn(*self.prepare_rsync(
-                src=self.workspace_path,
-                dst=self.remote_workspace_path(host)), log=log)()
+            if self.workspace:
+                self.spawn(*self.prepare_rsync(
+                    src=self.workspace_path,
+                    dst=self.remote_workspace_path(host)), log=log)()
 
-        with self.spawn(*self.prepare(host, script), log=log) as child:
-            # Send the password when prompted by sudo.
-            if self.sudo:
-                child.logfile = None
-                child.expect_exact(SSHRun.SUDO_PROMPT)
-                child.sendline(self.sudo_password)
-                child.expect_exact("\n")
-                child.logfile = log
+            with self.spawn(*self.prepare(host, script), log=log) as child:
+                # Send the password when prompted by sudo.
+                if self.sudo:
+                    child.logfile = None
+                    child.expect_exact(SSHRun.SUDO_PROMPT)
+                    child.sendline(self.sudo_password)
+                    child.expect_exact("\n")
+                    child.logfile = log
 
-        if self.workspace:
-            self.spawn(*self.prepare_rsync(
-                src=self.remote_workspace_path(host),
-                dst=self.workspace_path), log=log)()
+            if self.workspace:
+                self.spawn(*self.prepare_rsync(
+                    src=self.remote_workspace_path(host),
+                    dst=self.workspace_path), log=log)()
 
     def prepare(self, host, script):
         """Prepare the SSH command to run."""

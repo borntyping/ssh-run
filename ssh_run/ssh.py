@@ -1,7 +1,11 @@
+
+from __future__ import print_function
+
 import cmd
 import os
 import os.path
 
+import click
 import pexpect
 import termcolor
 
@@ -26,7 +30,7 @@ class Log:
 
         # Track newlines so that the prompt can be inserted in the right place.
         if self.newline:
-            print(self.prompt, end='')
+            click.echo(self.prompt, nl=False)
             self.newline = False
 
         if data.endswith('\n'):
@@ -34,11 +38,11 @@ class Log:
 
         # Insert a prompt when the line is cleared
         data = data.replace('\r', '\r' + self.prompt)
-        print(data, end='')
+        click.echo(data, nl=False)
 
     def write_end(self):
         if not self.newline:
-            print()
+            click.echo(nl=True)
 
     def flush(self):
         pass
@@ -46,14 +50,12 @@ class Log:
     def msg(self, message, color=None, always=False):
         """Write a log message as a colored output line"""
         if self._verbose or always:
-            print(self.prompt + termcolor.colored(message, color))
+            click.echo(self.prompt + termcolor.colored(message, color))
 
 
 class Spawn:
-    def __init__(self, command, *arguments,
-                 dry_run=False, log=None, timeout=None):
+    def __init__(self, command, dry_run=False, log=None, timeout=None):
         self.command = command
-        self.arguments = arguments
 
         self.dry_run = dry_run
         self.log = log
@@ -65,7 +67,7 @@ class Spawn:
             self.command, ' '.join(self.arguments)), 'cyan')
         if not self.dry_run:
             self.child = pexpect.spawnu(
-                self.command, list(self.arguments),
+                self.command[0], self.arguments[1:],
                 logfile=self.log, timeout=self.timeout)
             return self.child
 
@@ -125,7 +127,7 @@ class SSHRun:
 
     SUDO_PROMPT = 'ssh-run:'
 
-    def __init__(self, hosts, *, dry_run=False, timeout=None, sudo=False,
+    def __init__(self, hosts, dry_run=False, timeout=None, sudo=False,
                  sudo_password=None, verbose=False, workspace=False,
                  workspace_path=None):
         self.hosts = hosts
@@ -153,11 +155,11 @@ class SSHRun:
             log = Log(host, verbose=self.verbose)
 
             if self.workspace:
-                self.spawn(*self.prepare_rsync(
+                self.spawn(self.prepare_rsync(
                     src=self.workspace_path,
                     dst=self.remote_workspace_path(host)), log=log)()
 
-            with self.spawn(*self.prepare(host, script), log=log) as child:
+            with self.spawn(self.prepare(host, script), log=log) as child:
                 # Send the password when prompted by sudo.
                 if self.sudo:
                     child.logfile = None
@@ -167,7 +169,7 @@ class SSHRun:
                     child.logfile = log
 
             if self.workspace:
-                self.spawn(*self.prepare_rsync(
+                self.spawn(self.prepare_rsync(
                     src=self.remote_workspace_path(host),
                     dst=self.workspace_path), log=log)()
 

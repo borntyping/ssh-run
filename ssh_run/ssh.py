@@ -96,7 +96,7 @@ class Shell(cmd.Cmd):
     prompt = '(ssh-run)> '
 
     def __init__(self, runner, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(Shell, self).__init__(*args, **kwargs)
         self.runner = runner
 
     @property

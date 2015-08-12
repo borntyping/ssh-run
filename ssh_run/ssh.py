@@ -63,11 +63,10 @@ class Spawn:
 
     def __enter__(self):
         """Spawn the command."""
-        self.msg('$ {} {}'.format(
-            self.command, ' '.join(self.arguments)), 'cyan')
+        self.msg('$ ' + ' '.join(self.command), 'cyan')
         if not self.dry_run:
             self.child = pexpect.spawnu(
-                self.command[0], self.arguments[1:],
+                self.command[0], self.command[1:],
                 logfile=self.log, timeout=self.timeout)
             return self.child
 
@@ -102,13 +101,14 @@ class Shell(cmd.Cmd):
 
     @property
     def intro(self):
-        if not self.runner.verbose:
-            return None
-        return "Hosts: {}.".format(', '.join(self.runner.hosts))
+        if self.runner.verbose:
+            return "{}= Hosts: {}.".format(
+                self.prompt[:-2], ', '.join(self.runner.hosts))
+        return None
 
     def do_EOF(self, arg):
         """Exit the shell."""
-        print()
+        click.echo()
         return True
 
     def do_exit(self, arg):
@@ -116,8 +116,7 @@ class Shell(cmd.Cmd):
         return True
 
     def default(self, arg):
-        for host in self.hosts:
-            self.runner.run(host, [arg])
+        self.runner.run([arg])
 
 
 class SSHRun:

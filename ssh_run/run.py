@@ -8,14 +8,14 @@ import ssh_run
 import ssh_run.ssh
 
 
-def parse_hosts(hostslist, hostsfile):
+def parse_hosts(hosts_list, hosts_file):
     hosts = []
 
-    if hostslist:
-        hosts.extend(hostslist)
+    if hosts_list:
+        hosts.extend(hosts_list)
 
-    if hostsfile:
-        hosts.extend(host.decode('utf-8').strip() for host in hostsfile)
+    if hosts_file:
+        hosts.extend(host.decode('utf-8').strip() for host in hosts_file)
 
     if not hosts:
         raise Exception('No hosts provided')

@@ -18,31 +18,27 @@ class Log:
     def __init__(self, name, verbose):
         self.prompt = '[{}] '.format(termcolor.colored(name, 'blue'))
         self._verbose = verbose
-        self.newline = True
+
+        self.echo_prompt = True
 
     def write(self, data):
         """Write a stream to STDOUT, managing \\n and \\r correctly."""
 
-        # Raise an exception if sudo prompts the user to retry their password.
-        # This shouldn't be here but there's no other nice place to put it.
-        if data.startswith('Sorry, try again.'):
+        # Raise an exception if sudo prompts the user to retry. This
+        # shouldn't be here but there's no other nice place to put it.
+        if 'Sorry, try again.' in data:
             raise Exception("sudo password was incorrect")
 
-        # Track newlines so that the prompt can be inserted in the right place.
-        if self.newline:
-            click.echo(self.prompt, nl=False)
-            self.newline = False
-
-        if data.endswith('\n'):
-            self.newline = True
-
-        # Insert a prompt when the line is cleared
-        data = data.replace('\r', '\r' + self.prompt)
-        click.echo(data, nl=False)
-
-    def write_end(self):
-        if not self.newline:
-            click.echo(nl=True)
+        for char in data:
+            if char == '\r':
+                self.echo_prompt = True
+            elif char == '\n':
+                self.echo_prompt = True
+            else:
+                if self.echo_prompt:
+                    click.echo(self.prompt, nl=False)
+                    self.echo_prompt = False
+            click.echo(char, nl=False)
 
     def flush(self):
         pass
@@ -75,7 +71,6 @@ class Spawn:
         if not self.dry_run:
             self.child.expect(pexpect.EOF)
             self.child.close()
-            self.log.write_end()
             if self.child.exitstatus == 0:
                 self.msg("Command ran successfully. [0]", 'green')
             else:

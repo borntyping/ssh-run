@@ -100,8 +100,8 @@ class Shell(cmd.Cmd):
     @property
     def prompt(self):
         """Show a two line prompt with a list of hosts on the first line."""
-        return "(ssh-run)= {}\n(ssh-run)> ".format(
-            self.prompt[:-2], ', '.join(self.runner.hosts))
+        return "({prompt})= {hosts}\n({prompt})> ".format(
+            prompt='ssh-run', hosts=', '.join(self.runner.hosts))
 
     def do_EOF(self, arg):
         """Exit the shell."""

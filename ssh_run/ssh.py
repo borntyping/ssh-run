@@ -30,14 +30,13 @@ class Log:
             raise Exception("sudo password was incorrect")
 
         for char in data:
-            if char == '\r':
+            if self.echo_prompt:
+                click.echo(self.prompt, nl=False)
+                self.echo_prompt = False
+
+            if char == '\r' or char == '\n':
                 self.echo_prompt = True
-            elif char == '\n':
-                self.echo_prompt = True
-            else:
-                if self.echo_prompt:
-                    click.echo(self.prompt, nl=False)
-                    self.echo_prompt = False
+
             click.echo(char, nl=False)
 
     def flush(self):

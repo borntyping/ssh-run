@@ -4,6 +4,7 @@ from __future__ import print_function
 import cmd
 import os
 import os.path
+import readline
 
 import click
 import pexpect
@@ -87,6 +88,8 @@ class Spawn:
 
 
 class Shell(cmd.Cmd):
+    HISTFILE = os.path.expanduser('~/.ssh-run-history')
+
     def __init__(self, runner, *args, **kwargs):
         super(Shell, self).__init__(*args, **kwargs)
         self.runner = runner
@@ -96,6 +99,13 @@ class Shell(cmd.Cmd):
         """Show a two line prompt with a list of hosts on the first line."""
         return "({prompt})= {hosts}\n({prompt})> ".format(
             prompt='ssh-run', hosts=', '.join(self.runner.hosts))
+
+    def preloop(self):
+        if os.path.exists(self.HISTFILE):
+            readline.read_history_file(self.HISTFILE)
+
+    def postloop(self):
+        readline.write_history_file(self.HISTFILE)
 
     def do_EOF(self, arg):
         """Exit the shell."""

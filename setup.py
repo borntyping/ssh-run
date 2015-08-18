@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name='ssh-run',
-    version='2.4.0',
+    version='3.0.0',
 
     author="Sam Clements",
     author_email="sam@borntyping.co.uk",
@@ -17,6 +17,7 @@ setuptools.setup(
     packages=['ssh_run'],
     install_requires=[
         'click',
+        'keyring',
         'pexpect',
         'termcolor'
     ],

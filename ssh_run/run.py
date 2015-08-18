@@ -3,6 +3,7 @@
 import os
 
 import click
+import keyring
 
 import ssh_run
 import ssh_run.ssh
@@ -23,7 +24,30 @@ def parse_hosts(hosts_list, hosts_file):
     return hosts
 
 
-@click.command()
+def get_sudo_password(password, keyring_context):
+    """
+    Prompt the user for a password to use with sudo.
+
+    Priority: --sudo-password, --keyring, prompt.
+    """
+
+    # First try getting a password from the keyring.
+    if not password and keyring_context:
+        password = keyring.get_password('sshrun', keyring_context)
+
+    # Then prompt for input if there was no password.
+    if not password:
+        password = click.prompt(
+            '[sudo] password for remote hosts', hide_input=True, err=True)
+
+        # Store the password if we are using a keyring.
+        if keyring_context:
+            keyring.set_password('sshrun', keyring_context, password)
+
+    return password
+
+
+@click.command(context_settings={'auto_envvar_prefix': 'SSH_RUN'})
 @click.option(
     '--host', '-h', 'hosts_list', metavar='HOSTNAME', multiple=True,
     help='A single hostname. Can be used multiple times.')
@@ -37,8 +61,11 @@ def parse_hosts(hosts_list, hosts_file):
     '--sudo', '-s', is_flag=True, default=False,
     help='Run the command using sudo.')
 @click.option(
-    '--sudo-password', '-S',
+    '--sudo-password', '-p',
     help='Password for --sudo. Prompts if not set.')
+@click.option(
+    '--sudo-keyring', '-k', 'sudo_keyring', metavar='CONTEXT',
+    help='Use the system keyring to store the password.')
 @click.option(
     '--timeout', '-t', type=click.INT, default=300,
     help='Command timeout in seconds.')
@@ -55,7 +82,7 @@ def parse_hosts(hosts_list, hosts_file):
 @click.version_option(ssh_run.__version__, '--version', '-V')
 @click.argument('command', nargs=-1)
 def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
-         workspace, workspace_path, verbose, command):
+         sudo_keyring, workspace, workspace_path, verbose, command):
     """
     Run a command across multiple hosts in sequence.
 
@@ -72,16 +99,12 @@ def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
     input commands on each host.
     """
 
-    # Prompt the user for a password to use with sudo.
-    if sudo and not sudo_password:
-        sudo_password = click.prompt(
-            '[sudo] password for remote hosts', hide_input=True, err=True)
-
     # Create a runner with the settings used on every host.
     runner = ssh_run.ssh.SSHRun(
         parse_hosts(hosts_list, hosts_file), dry_run=dry_run, sudo=sudo,
-        sudo_password=sudo_password, timeout=timeout, verbose=verbose,
-        workspace=workspace, workspace_path=workspace_path)
+        sudo_password=get_sudo_password(sudo_password, sudo_keyring),
+        timeout=timeout, verbose=verbose, workspace=workspace,
+        workspace_path=workspace_path)
 
     # Run the command or start a shell for running multiple commands.
     runner.run(command) if command else runner.shell()

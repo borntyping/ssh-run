@@ -24,15 +24,17 @@ def parse_hosts(hosts_list, hosts_file):
     return hosts
 
 
-def get_sudo_password(password, keyring_context):
+def get_sudo_password(use_keyring=False, keyring_context='default'):
     """
     Prompt the user for a password to use with sudo.
 
     Priority: --sudo-password, --keyring, prompt.
     """
 
+    password = None
+
     # First try getting a password from the keyring.
-    if not password and keyring_context:
+    if use_keyring:
         password = keyring.get_password('sshrun', keyring_context)
 
     # Then prompt for input if there was no password.
@@ -41,7 +43,7 @@ def get_sudo_password(password, keyring_context):
             '[sudo] password for remote hosts', hide_input=True, err=True)
 
         # Store the password if we are using a keyring.
-        if keyring_context:
+        if use_keyring:
             keyring.set_password('sshrun', keyring_context, password)
 
     return password
@@ -61,11 +63,14 @@ def get_sudo_password(password, keyring_context):
     '--sudo', '-s', is_flag=True, default=False,
     help='Run the command using sudo.')
 @click.option(
-    '--sudo-password', '-p',
+    '--sudo-password', '-S',
     help='Password for --sudo. Prompts if not set.')
 @click.option(
-    '--sudo-keyring', '-k', 'sudo_keyring', metavar='CONTEXT',
+    '--sudo-keyring', '-k', 'sudo_keyring', is_flag=True,
     help='Use the system keyring to store the password.')
+@click.option(
+    '--sudo-keyring-context', '-K', 'sudo_keyring_context', default='default',
+    metavar='CONTEXT', help='Use the system keyring to store the password.')
 @click.option(
     '--timeout', '-t', type=click.INT, default=300,
     help='Command timeout in seconds.')
@@ -82,7 +87,8 @@ def get_sudo_password(password, keyring_context):
 @click.version_option(ssh_run.__version__, '--version', '-V')
 @click.argument('command', nargs=-1)
 def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
-         sudo_keyring, workspace, workspace_path, verbose, command):
+         sudo_keyring, sudo_keyring_context, workspace, workspace_path,
+         verbose, command):
     """
     Run a command across multiple hosts in sequence.
 
@@ -99,12 +105,14 @@ def main(hosts_list, hosts_file, dry_run, timeout, sudo, sudo_password,
     input commands on each host.
     """
 
+    if sudo and not sudo_password:
+        sudo_password = get_sudo_password(sudo_keyring, sudo_keyring_context)
+
     # Create a runner with the settings used on every host.
     runner = ssh_run.ssh.SSHRun(
         parse_hosts(hosts_list, hosts_file), dry_run=dry_run, sudo=sudo,
-        sudo_password=get_sudo_password(sudo_password, sudo_keyring),
-        timeout=timeout, verbose=verbose, workspace=workspace,
-        workspace_path=workspace_path)
+        sudo_password=sudo_password, timeout=timeout, verbose=verbose,
+        workspace=workspace, workspace_path=workspace_path)
 
     # Run the command or start a shell for running multiple commands.
     runner.run(command) if command else runner.shell()
